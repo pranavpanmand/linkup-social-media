@@ -21,11 +21,15 @@ import useShowToast from "../hooks/useShowToast";
 import postsAtom from "../atoms/postsAtom";
 
 const Actions = ({ post }) => {
-	const user = useRecoilValue(userAtom);
+	const [user, setUser] = useRecoilState(userAtom);
 	const [liked, setLiked] = useState(post.likes.includes(user?._id));
+	const [reposted, setReposted] = useState(post.reposts?.includes(user?._id));
+	const [bookmarked, setBookmarked] = useState(user?.bookmarks?.includes(post._id));
 	const [posts, setPosts] = useRecoilState(postsAtom);
 	const [isLiking, setIsLiking] = useState(false);
 	const [isReplying, setIsReplying] = useState(false);
+	const [isReposting, setIsReposting] = useState(false);
+	const [isBookmarking, setIsBookmarking] = useState(false);
 	const [reply, setReply] = useState("");
 
 	const showToast = useShowToast();
@@ -35,6 +39,30 @@ const Actions = ({ post }) => {
 		if (!user) return showToast("Error", "You must be logged in to like a post", "error");
 		if (isLiking) return;
 		setIsLiking(true);
+
+		// Optimistic UI Update
+		const previousLiked = liked;
+		const previousPosts = [...posts];
+		setLiked(!liked);
+		
+		if (!liked) {
+			const updatedPosts = posts.map((p) => {
+				if (p._id === post._id) {
+					return { ...p, likes: [...p.likes, user._id] };
+				}
+				return p;
+			});
+			setPosts(updatedPosts);
+		} else {
+			const updatedPosts = posts.map((p) => {
+				if (p._id === post._id) {
+					return { ...p, likes: p.likes.filter((id) => id !== user._id) };
+				}
+				return p;
+			});
+			setPosts(updatedPosts);
+		}
+
 		try {
 			const res = await fetch("/api/posts/like/" + post._id, {
 				method: "PUT",
@@ -43,31 +71,12 @@ const Actions = ({ post }) => {
 				},
 			});
 			const data = await res.json();
-			if (data.error) return showToast("Error", data.error, "error");
-
-			if (!liked) {
-				// add the id of the current user to post.likes array
-				const updatedPosts = posts.map((p) => {
-					if (p._id === post._id) {
-						return { ...p, likes: [...p.likes, user._id] };
-					}
-					return p;
-				});
-				setPosts(updatedPosts);
-			} else {
-				// remove the id of the current user from post.likes array
-				const updatedPosts = posts.map((p) => {
-					if (p._id === post._id) {
-						return { ...p, likes: p.likes.filter((id) => id !== user._id) };
-					}
-					return p;
-				});
-				setPosts(updatedPosts);
-			}
-
-			setLiked(!liked);
+			if (data.error) throw new Error(data.error);
 		} catch (error) {
 			showToast("Error", error.message, "error");
+			// Rollback on error
+			setLiked(previousLiked);
+			setPosts(previousPosts);
 		} finally {
 			setIsLiking(false);
 		}
@@ -104,6 +113,74 @@ const Actions = ({ post }) => {
 			setIsReplying(false);
 		}
 	};
+
+	const handleRepost = async () => {
+		if (!user) return showToast("Error", "You must be logged in to repost", "error");
+		if (isReposting) return;
+		setIsReposting(true);
+		try {
+			const res = await fetch("/api/posts/repost/" + post._id, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+			});
+			const data = await res.json();
+			if (data.error) return showToast("Error", data.error, "error");
+
+			if (!reposted) {
+				const updatedPosts = posts.map((p) => {
+					if (p._id === post._id) {
+						return { ...p, reposts: [...(p.reposts || []), user._id] };
+					}
+					return p;
+				});
+				setPosts(updatedPosts);
+			} else {
+				const updatedPosts = posts.map((p) => {
+					if (p._id === post._id) {
+						return { ...p, reposts: (p.reposts || []).filter((id) => id !== user._id) };
+					}
+					return p;
+				});
+				setPosts(updatedPosts);
+			}
+			setReposted(!reposted);
+			showToast("Success", data.message, "success");
+		} catch (error) {
+			showToast("Error", error.message, "error");
+		} finally {
+			setIsReposting(false);
+		}
+	};
+
+	const handleBookmark = async () => {
+		if (!user) return showToast("Error", "You must be logged in to bookmark", "error");
+		if (isBookmarking) return;
+		setIsBookmarking(true);
+		try {
+			const res = await fetch("/api/posts/bookmark/" + post._id, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+			});
+			const data = await res.json();
+			if (data.error) return showToast("Error", data.error, "error");
+
+			let updatedBookmarks = user.bookmarks || [];
+			if (!bookmarked) {
+				updatedBookmarks = [...updatedBookmarks, post._id];
+			} else {
+				updatedBookmarks = updatedBookmarks.filter((id) => id !== post._id);
+			}
+			setUser({ ...user, bookmarks: updatedBookmarks });
+			localStorage.setItem("user-threads", JSON.stringify({ ...user, bookmarks: updatedBookmarks }));
+			setBookmarked(!bookmarked);
+			showToast("Success", data.message, "success");
+		} catch (error) {
+			showToast("Error", error.message, "error");
+		} finally {
+			setIsBookmarking(false);
+		}
+	};
+
 
 	return (
 		<Flex flexDirection='column'>
@@ -145,8 +222,13 @@ const Actions = ({ post }) => {
 					></path>
 				</svg>
 
-				<RepostSVG />
+				<Box cursor="pointer" onClick={handleRepost}>
+					<RepostSVG reposted={reposted} />
+				</Box>
 				<ShareSVG />
+				<Box cursor="pointer" onClick={handleBookmark}>
+					<BookmarkSVG bookmarked={bookmarked} />
+				</Box>
 			</Flex>
 
 			<Flex gap={2} alignItems={"center"}>
@@ -187,12 +269,12 @@ const Actions = ({ post }) => {
 
 export default Actions;
 
-const RepostSVG = () => {
+const RepostSVG = ({ reposted }) => {
 	return (
 		<svg
 			aria-label='Repost'
-			color='currentColor'
-			fill='currentColor'
+			color={reposted ? 'rgb(23, 191, 99)' : 'currentColor'}
+			fill={reposted ? 'rgb(23, 191, 99)' : 'currentColor'}
 			height='20'
 			role='img'
 			viewBox='0 0 24 24'
@@ -202,6 +284,28 @@ const RepostSVG = () => {
 			<path
 				fill=''
 				d='M19.998 9.497a1 1 0 0 0-1 1v4.228a3.274 3.274 0 0 1-3.27 3.27h-5.313l1.791-1.787a1 1 0 0 0-1.412-1.416L7.29 18.287a1.004 1.004 0 0 0-.294.707v.001c0 .023.012.042.013.065a.923.923 0 0 0 .281.643l3.502 3.504a1 1 0 0 0 1.414-1.414l-1.797-1.798h5.318a5.276 5.276 0 0 0 5.27-5.27v-4.228a1 1 0 0 0-1-1Zm-6.41-3.496-1.795 1.795a1 1 0 1 0 1.414 1.414l3.5-3.5a1.003 1.003 0 0 0 0-1.417l-3.5-3.5a1 1 0 0 0-1.414 1.414l1.794 1.794H8.27A5.277 5.277 0 0 0 3 9.271V13.5a1 1 0 0 0 2 0V9.271a3.275 3.275 0 0 1 3.271-3.27Z'
+			></path>
+		</svg>
+	);
+};
+
+const BookmarkSVG = ({ bookmarked }) => {
+	return (
+		<svg
+			aria-label='Bookmark'
+			color={bookmarked ? 'rgb(29, 155, 240)' : 'currentColor'}
+			fill={bookmarked ? 'rgb(29, 155, 240)' : 'none'}
+			height='20'
+			role='img'
+			viewBox='0 0 24 24'
+			width='20'
+		>
+			<title>Bookmark</title>
+			<path
+				stroke='currentColor'
+				strokeLinejoin='round'
+				strokeWidth='2'
+				d='M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16l-8-5-8 5z'
 			></path>
 		</svg>
 	);

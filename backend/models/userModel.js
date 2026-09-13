@@ -19,7 +19,16 @@ const userSchema = mongoose.Schema(
 		password: {
 			type: String,
 			minLength: 6,
-			required: true,
+		},
+		googleId: {
+			type: String,
+			unique: true,
+			sparse: true,
+		},
+		bookmarks: {
+			type: [mongoose.Schema.Types.ObjectId],
+			ref: 'Post',
+			default: [],
 		},
 		profilePic: {
 			type: String,

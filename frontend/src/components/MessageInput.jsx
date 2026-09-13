@@ -20,6 +20,7 @@ import { conversationsAtom, selectedConversationAtom } from "../atoms/messagesAt
 import { useRecoilValue, useSetRecoilState } from "recoil";
 import { BsFillImageFill } from "react-icons/bs";
 import usePreviewImg from "../hooks/usePreviewImg";
+import { useSocket } from "../context/SocketContext.jsx";
 
 const MessageInput = ({ setMessages }) => {
 	const [messageText, setMessageText] = useState("");
@@ -30,6 +31,24 @@ const MessageInput = ({ setMessages }) => {
 	const { onClose } = useDisclosure();
 	const { handleImageChange, imgUrl, setImgUrl } = usePreviewImg();
 	const [isSending, setIsSending] = useState(false);
+	const { socket } = useSocket();
+	const typingTimeoutRef = useRef(null);
+
+	const handleTyping = (e) => {
+		setMessageText(e.target.value);
+		if (!socket) return;
+		socket.emit("typing", {
+			recipientId: selectedConversation.userId,
+			conversationId: selectedConversation._id,
+		});
+		if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+		typingTimeoutRef.current = setTimeout(() => {
+			socket.emit("stopTyping", {
+				recipientId: selectedConversation.userId,
+				conversationId: selectedConversation._id,
+			});
+		}, 2000);
+	};
 
 	const handleSendMessage = async (e) => {
 		e.preventDefault();
@@ -37,6 +56,13 @@ const MessageInput = ({ setMessages }) => {
 		if (isSending) return;
 
 		setIsSending(true);
+		
+		if (socket) {
+			socket.emit("stopTyping", {
+				recipientId: selectedConversation.userId,
+				conversationId: selectedConversation._id,
+			});
+		}
 
 		try {
 			const res = await fetch("/api/messages", {
@@ -88,7 +114,7 @@ const MessageInput = ({ setMessages }) => {
 					<Input
 						w={"full"}
 						placeholder='Type a message'
-						onChange={(e) => setMessageText(e.target.value)}
+						onChange={handleTyping}
 						value={messageText}
 					/>
 					<InputRightElement onClick={handleSendMessage} cursor={"pointer"}>

@@ -36,6 +36,18 @@ io.on("connection", (socket) => {
 		}
 	});
 
+	socket.on("typing", ({ recipientId, conversationId }) => {
+		if (userSocketMap[recipientId]) {
+			io.to(userSocketMap[recipientId]).emit("typing", { conversationId, senderId: userId });
+		}
+	});
+
+	socket.on("stopTyping", ({ recipientId, conversationId }) => {
+		if (userSocketMap[recipientId]) {
+			io.to(userSocketMap[recipientId]).emit("stopTyping", { conversationId, senderId: userId });
+		}
+	});
+
 	socket.on("disconnect", () => {
 		console.log("user disconnected");
 		delete userSocketMap[userId];

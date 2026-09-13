@@ -132,13 +132,13 @@ const ChatPage = () => {
 				}}
 				mx={"auto"}
 			>
-				<Flex flex={30} gap={2} flexDirection={"column"} maxW={{ sm: "250px", md: "full" }} mx={"auto"}>
-					<Text fontWeight={700} color={useColorModeValue("gray.600", "gray.400")}>
+				<Flex flex={30} gap={4} flexDirection={"column"} maxW={{ sm: "250px", md: "full" }} mx={"auto"} className="layout-border" p={4}>
+					<Text fontWeight={800} fontSize="xl" color="white">
 						Your Conversations
 					</Text>
 					<form onSubmit={handleConversationSearch}>
 						<Flex alignItems={"center"} gap={2}>
-							<Input placeholder='Search for a user' onChange={(e) => setSearchText(e.target.value)} />
+							<Input placeholder='Search for a user' bg="gray.800" border="none" _focus={{boxShadow: "0 0 0 1px #0ea5e9"}} onChange={(e) => setSearchText(e.target.value)} />
 							<Button size={"sm"} onClick={handleConversationSearch} isLoading={searchingUser}>
 								<SearchIcon />
 							</Button>
@@ -170,15 +170,15 @@ const ChatPage = () => {
 				{!selectedConversation._id && (
 					<Flex
 						flex={70}
-						borderRadius={"md"}
+						className="layout-border"
 						p={2}
 						flexDir={"column"}
 						alignItems={"center"}
 						justifyContent={"center"}
 						height={"400px"}
 					>
-						<GiConversation size={100} />
-						<Text fontSize={20}>Select a conversation to start messaging</Text>
+						<GiConversation size={100} color="white" />
+						<Text fontSize={20} mt={4} color="gray.300">Select a conversation to start messaging</Text>
 					</Flex>
 				)}
 

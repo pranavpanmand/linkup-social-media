@@ -8,7 +8,9 @@ import { FiLogOut } from "react-icons/fi";
 import useLogout from "../hooks/useLogout";
 import authScreenAtom from "../atoms/authAtom";
 import { BsFillChatQuoteFill } from "react-icons/bs";
-import { MdOutlineSettings } from "react-icons/md";
+import { MdOutlineSettings, MdExplore } from "react-icons/md";
+import { SearchIcon } from "@chakra-ui/icons";
+import NotificationMenu from "./NotificationMenu";
 
 const Header = () => {
 	const { colorMode, toggleColorMode } = useColorMode();
@@ -42,9 +44,16 @@ const Header = () => {
 					<Link as={RouterLink} to={`/${user.username}`}>
 						<RxAvatar size={24} />
 					</Link>
+					<Button variant="ghost" size="sm" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'k', ctrlKey: true}))}>
+						<SearchIcon size={24} />
+					</Button>
+					<Link as={RouterLink} to={`/explore`}>
+						<MdExplore size={24} />
+					</Link>
 					<Link as={RouterLink} to={`/chat`}>
 						<BsFillChatQuoteFill size={20} />
 					</Link>
+					<NotificationMenu />
 					<Link as={RouterLink} to={`/settings`}>
 						<MdOutlineSettings size={20} />
 					</Link>

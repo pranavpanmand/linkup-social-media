@@ -1,5 +1,6 @@
 import Post from "../models/postModel.js";
 import User from "../models/userModel.js";
+import Notification from "../models/notificationModel.js";
 import { v2 as cloudinary } from "cloudinary";
 
 const createPost = async (req, res) => {
@@ -99,6 +100,17 @@ const likeUnlikePost = async (req, res) => {
 			// Like post
 			post.likes.push(userId);
 			await post.save();
+			
+			if (post.postedBy.toString() !== userId.toString()) {
+				const notification = new Notification({
+					sender: userId,
+					recipient: post.postedBy,
+					type: "like",
+					post: postId,
+				});
+				await notification.save();
+			}
+			
 			res.status(200).json({ message: "Post liked successfully" });
 		}
 	} catch (err) {
@@ -127,6 +139,16 @@ const replyToPost = async (req, res) => {
 
 		post.replies.push(reply);
 		await post.save();
+
+		if (post.postedBy.toString() !== userId.toString()) {
+			const notification = new Notification({
+				sender: userId,
+				recipient: post.postedBy,
+				type: "reply",
+				post: postId,
+			});
+			await notification.save();
+		}
 
 		res.status(200).json(reply);
 	} catch (err) {
@@ -168,4 +190,83 @@ const getUserPosts = async (req, res) => {
 	}
 };
 
-export { createPost, getPost, deletePost, likeUnlikePost, replyToPost, getFeedPosts, getUserPosts };
+const repostPost = async (req, res) => {
+	try {
+		const { id: postId } = req.params;
+		const userId = req.user._id;
+
+		const post = await Post.findById(postId);
+		if (!post) return res.status(404).json({ error: "Post not found" });
+
+		const hasReposted = post.reposts.includes(userId);
+		if (hasReposted) {
+			// undo repost
+			await Post.updateOne({ _id: postId }, { $pull: { reposts: userId } });
+			res.status(200).json({ message: "Post unreposted successfully" });
+		} else {
+			// repost
+			post.reposts.push(userId);
+			await post.save();
+			res.status(200).json({ message: "Post reposted successfully" });
+		}
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+};
+
+const bookmarkPost = async (req, res) => {
+	try {
+		const { id: postId } = req.params;
+		const userId = req.user._id;
+
+		const user = await User.findById(userId);
+		if (!user) return res.status(404).json({ error: "User not found" });
+
+		const isBookmarked = user.bookmarks.includes(postId);
+		if (isBookmarked) {
+			// unbookmark
+			await User.updateOne({ _id: userId }, { $pull: { bookmarks: postId } });
+			res.status(200).json({ message: "Post removed from bookmarks" });
+		} else {
+			// bookmark
+			user.bookmarks.push(postId);
+			await user.save();
+			res.status(200).json({ message: "Post bookmarked successfully" });
+		}
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+};
+
+const getExplorePosts = async (req, res) => {
+	try {
+		// Get random posts from the database that are not from the current user
+		const posts = await Post.aggregate([
+			{ $match: { postedBy: { $ne: req.user._id } } },
+			{ $sample: { size: 20 } }
+		]);
+
+		await Post.populate(posts, { path: "postedBy", select: "username profilePic" });
+
+		res.status(200).json(posts);
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+};
+
+const getSavedPosts = async (req, res) => {
+	try {
+		const user = await User.findById(req.user._id);
+		if (!user) return res.status(404).json({ error: "User not found" });
+
+		const savedPosts = await Post.find({ _id: { $in: user.bookmarks } })
+			.populate("postedBy", "username profilePic")
+			.sort({ createdAt: -1 });
+
+		res.status(200).json(savedPosts);
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+};
+
+export { createPost, getPost, deletePost, likeUnlikePost, replyToPost, getFeedPosts, getUserPosts, repostPost, bookmarkPost, getExplorePosts, getSavedPosts };

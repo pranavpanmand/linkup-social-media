@@ -2,9 +2,12 @@ import { Box, Flex, Spinner } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import useShowToast from "../hooks/useShowToast";
 import Post from "../components/Post";
+import PostSkeleton from "../components/PostSkeleton";
 import { useRecoilState } from "recoil";
 import postsAtom from "../atoms/postsAtom";
 import SuggestedUsers from "../components/SuggestedUsers";
+import StoriesBar from "../components/StoriesBar";
+import EmptyState from "../components/EmptyState";
 
 const HomePage = () => {
 	const [posts, setPosts] = useRecoilState(postsAtom);
@@ -35,11 +38,15 @@ const HomePage = () => {
 	return (
 		<Flex gap='10' alignItems={"flex-start"}>
 			<Box flex={70}>
-				{!loading && posts.length === 0 && <h1>Follow some users to see the feed</h1>}
+				<StoriesBar />
+				
+				{!loading && posts.length === 0 && <EmptyState message="Your feed is empty" subMessage="Follow some users to see their posts here." />}
 
 				{loading && (
-					<Flex justify='center'>
-						<Spinner size='xl' />
+					<Flex direction='column' gap={4}>
+						{[0, 1, 2].map((_, i) => (
+							<PostSkeleton key={i} />
+						))}
 					</Flex>
 				)}
 

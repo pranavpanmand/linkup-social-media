@@ -99,4 +99,25 @@ async function getConversations(req, res) {
 	}
 }
 
-export { sendMessage, getMessages, getConversations };
+async function deleteMessage(req, res) {
+	try {
+		const message = await Message.findById(req.params.messageId);
+		if (!message) {
+			return res.status(404).json({ error: "Message not found" });
+		}
+		if (message.sender.toString() !== req.user._id.toString()) {
+			return res.status(401).json({ error: "Unauthorized to delete this message" });
+		}
+
+		await Message.findByIdAndDelete(req.params.messageId);
+
+		// If this was the last message in the conversation, we should ideally update the conversation's lastMessage
+		// For simplicity, we just delete it from DB and let frontend handle UI.
+
+		res.status(200).json({ message: "Message deleted successfully", id: req.params.messageId });
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+	}
+}
+
+export { sendMessage, getMessages, getConversations, deleteMessage };

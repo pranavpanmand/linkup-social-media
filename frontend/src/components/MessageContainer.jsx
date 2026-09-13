@@ -1,4 +1,4 @@
-import { Avatar, Divider, Flex, Image, Skeleton, SkeletonCircle, Text, useColorModeValue } from "@chakra-ui/react";
+import { Avatar, Divider, Flex, Image, Skeleton, SkeletonCircle, Text } from "@chakra-ui/react";
 import Message from "./Message";
 import MessageInput from "./MessageInput";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +13,7 @@ const MessageContainer = () => {
 	const selectedConversation = useRecoilValue(selectedConversationAtom);
 	const [loadingMessages, setLoadingMessages] = useState(true);
 	const [messages, setMessages] = useState([]);
+	const [isTyping, setIsTyping] = useState(false);
 	const currentUser = useRecoilValue(userAtom);
 	const { socket } = useSocket();
 	const setConversations = useSetRecoilState(conversationsAtom);
@@ -47,7 +48,24 @@ const MessageContainer = () => {
 			});
 		});
 
-		return () => socket.off("newMessage");
+
+		socket.on("typing", ({ conversationId }) => {
+			if (selectedConversation._id === conversationId) {
+				setIsTyping(true);
+			}
+		});
+
+		socket.on("stopTyping", ({ conversationId }) => {
+			if (selectedConversation._id === conversationId) {
+				setIsTyping(false);
+			}
+		});
+
+		return () => {
+			socket.off("newMessage");
+			socket.off("typing");
+			socket.off("stopTyping");
+		};
 	}, [socket, selectedConversation, setConversations]);
 
 	useEffect(() => {
@@ -107,9 +125,8 @@ const MessageContainer = () => {
 	return (
 		<Flex
 			flex='70'
-			bg={useColorModeValue("gray.200", "gray.dark")}
-			borderRadius={"md"}
-			p={2}
+			className="layout-border"
+			p={4}
 			flexDirection={"column"}
 		>
 			{/* Message header */}
@@ -150,9 +167,18 @@ const MessageContainer = () => {
 							direction={"column"}
 							ref={messages.length - 1 === messages.indexOf(message) ? messageEndRef : null}
 						>
-							<Message message={message} ownMessage={currentUser._id === message.sender} />
+							<Message message={message} ownMessage={currentUser._id === message.sender} setMessages={setMessages} />
 						</Flex>
 					))}
+
+				{isTyping && (
+					<Flex gap={2} alignSelf={"flex-start"}>
+						<Avatar src={selectedConversation.userProfilePic} w='7' h={7} />
+						<Flex bg={"gray.800"} p={3} borderRadius={"xl"} borderBottomLeftRadius="sm">
+							<Text color={"white"} fontSize="sm" fontStyle="italic">Typing...</Text>
+						</Flex>
+					</Flex>
+				)}
 			</Flex>
 
 			<MessageInput setMessages={setMessages} />

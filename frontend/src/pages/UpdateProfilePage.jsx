@@ -15,9 +15,11 @@ import { useRecoilState } from "recoil";
 import userAtom from "../atoms/userAtom";
 import usePreviewImg from "../hooks/usePreviewImg";
 import useShowToast from "../hooks/useShowToast";
+import { useNavigate } from "react-router-dom";
 
 export default function UpdateProfilePage() {
 	const [user, setUser] = useRecoilState(userAtom);
+	const navigate = useNavigate();
 	const [inputs, setInputs] = useState({
 		name: user.name,
 		username: user.username,
@@ -65,9 +67,7 @@ export default function UpdateProfilePage() {
 					spacing={4}
 					w={"full"}
 					maxW={"md"}
-					bg={useColorModeValue("white", "gray.dark")}
-					rounded={"xl"}
-					boxShadow={"lg"}
+					className="layout-border"
 					p={6}
 				>
 					<Heading lineHeight={1.1} fontSize={{ base: "2xl", sm: "3xl" }}>
@@ -138,24 +138,29 @@ export default function UpdateProfilePage() {
 					</FormControl>
 					<Stack spacing={6} direction={["column", "row"]}>
 						<Button
-							bg={"red.400"}
+							bg={"transparent"}
+							border="1px solid"
+							borderColor="gray.600"
 							color={"white"}
 							w='full'
 							_hover={{
-								bg: "red.500",
+								bg: "whiteAlpha.200",
 							}}
+							borderRadius="full"
+							onClick={() => navigate(-1)}
 						>
 							Cancel
 						</Button>
 						<Button
-							bg={"green.400"}
-							color={"white"}
+							bg={"white"}
+							color={"black"}
 							w='full'
 							_hover={{
-								bg: "green.500",
+								bg: "gray.200",
 							}}
 							type='submit'
 							isLoading={updating}
+							borderRadius="full"
 						>
 							Submit
 						</Button>

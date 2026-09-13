@@ -19,8 +19,28 @@
 }
 
 ::-webkit-scrollbar-thumb {
+	background-color: #555;
+	border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
 	background-color: #888;
 }
-::-webkit-scrollbar-thumb {
-	background-color: #555;
+
+
+
+.threads-card {
+	border-bottom: 1px solid #2d2d2d;
+	background-color: transparent;
+	transition: background-color 0.2s ease;
+}
+
+.threads-card:hover {
+	background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Minimalist border for layout panels */
+.layout-border {
+	border: 1px solid #2d2d2d;
+	border-radius: 20px;
 }

@@ -11,17 +11,22 @@ import UpdateProfilePage from "./pages/UpdateProfilePage";
 import CreatePost from "./components/CreatePost";
 import ChatPage from "./pages/ChatPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import ExplorePage from "./pages/ExplorePage";
+import CommandPalette from "./components/CommandPalette";
+
 function App() {
 	const user = useRecoilValue(userAtom);
 	const { pathname } = useLocation();
 	return (
 		<Box position={"relative"} w='full'>
 			<Container maxW={pathname === "/" ? { base: "620px", md: "900px" } : "620px"}>
+				<CommandPalette />
 				<Header />
 				<Routes>
 					<Route path='/' element={user ? <HomePage /> : <Navigate to='/auth' />} />
 					<Route path='/auth' element={!user ? <AuthPage /> : <Navigate to='/' />} />
 					<Route path='/update' element={user ? <UpdateProfilePage /> : <Navigate to='/auth' />} />
+					<Route path='/explore' element={user ? <ExplorePage /> : <Navigate to='/auth' />} />
 
 					<Route
 						path='/:username'

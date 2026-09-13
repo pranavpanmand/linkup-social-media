@@ -1,7 +1,10 @@
 import { Avatar } from "@chakra-ui/avatar";
 import { Image } from "@chakra-ui/image";
 import { Box, Flex, Text } from "@chakra-ui/layout";
+import { Modal, ModalOverlay, ModalContent, ModalBody, ModalCloseButton, useDisclosure } from "@chakra-ui/react";
 import { Link, useNavigate } from "react-router-dom";
+import { FaHeart } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 import Actions from "./Actions";
 import { useEffect, useState } from "react";
 import useShowToast from "../hooks/useShowToast";
@@ -17,6 +20,51 @@ const Post = ({ post, postedBy }) => {
 	const currentUser = useRecoilValue(userAtom);
 	const [posts, setPosts] = useRecoilState(postsAtom);
 	const navigate = useNavigate();
+	const { isOpen, onOpen, onClose } = useDisclosure();
+	const [showHeart, setShowHeart] = useState(false);
+
+	const handleDoubleClick = async (e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setShowHeart(true);
+		setTimeout(() => setShowHeart(false), 800);
+		
+		if (!currentUser) return;
+		try {
+			const res = await fetch("/api/posts/like/" + post._id, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+			});
+			const data = await res.json();
+			if (!data.error) {
+				const updatedPosts = posts.map((p) => {
+					if (p._id === post._id) {
+						const isLiked = p.likes.includes(currentUser._id);
+						return { ...p, likes: isLiked ? p.likes.filter(id => id !== currentUser._id) : [...p.likes, currentUser._id] };
+					}
+					return p;
+				});
+				setPosts(updatedPosts);
+			}
+		} catch(err) {}
+	};
+
+	const renderTextWithMentionsAndHashtags = (text) => {
+		if (!text) return null;
+		const words = text.split(/(\s+)/);
+		return words.map((word, index) => {
+			if (word.startsWith("#") && word.length > 1) {
+				return <Text as="span" key={index} color="blue.400" cursor="pointer" _hover={{textDecoration: "underline"}}>{word}</Text>;
+			}
+			if (word.startsWith("@") && word.length > 1) {
+				return <Text as="span" key={index} color="brand.400" fontWeight="bold" cursor="pointer" _hover={{textDecoration: "underline"}} onClick={(e) => {
+					e.preventDefault();
+					navigate(`/${word.substring(1)}`);
+				}}>{word}</Text>;
+			}
+			return word;
+		});
+	};
 
 	useEffect(() => {
 		const getUser = async () => {
@@ -60,7 +108,7 @@ const Post = ({ post, postedBy }) => {
 	if (!user) return null;
 	return (
 		<Link to={`/${user.username}/post/${post._id}`}>
-			<Flex gap={3} mb={4} py={5}>
+			<Flex gap={3} mb={4} py={3} className="threads-card">
 				<Flex flexDirection={"column"} alignItems={"center"}>
 					<Avatar
 						size='md'
@@ -135,10 +183,39 @@ const Post = ({ post, postedBy }) => {
 						</Flex>
 					</Flex>
 
-					<Text fontSize={"sm"}>{post.text}</Text>
+					<Text fontSize={"sm"}>{renderTextWithMentionsAndHashtags(post.text)}</Text>
 					{post.img && (
-						<Box borderRadius={6} overflow={"hidden"} border={"1px solid"} borderColor={"gray.light"}>
+						<Box 
+							position="relative"
+							borderRadius={6} 
+							overflow={"hidden"} 
+							border={"1px solid"} 
+							borderColor={"gray.light"}
+							onClick={(e) => {
+								e.preventDefault();
+								onOpen();
+							}}
+							onDoubleClick={handleDoubleClick}
+							cursor="pointer"
+						>
 							<Image src={post.img} w={"full"} />
+							<AnimatePresence>
+								{showHeart && (
+									<Flex 
+										as={motion.div} 
+										initial={{ opacity: 0, scale: 0.5 }} 
+										animate={{ opacity: 1, scale: 1.2 }} 
+										exit={{ opacity: 0, scale: 1 }} 
+										transition={{ duration: 0.3 }}
+										position="absolute" 
+										top="0" left="0" w="full" h="full" 
+										alignItems="center" justifyContent="center"
+										pointerEvents="none"
+									>
+										<FaHeart size={80} color="red" style={{ filter: "drop-shadow(0 0 10px rgba(0,0,0,0.5))" }} />
+									</Flex>
+								)}
+							</AnimatePresence>
 						</Box>
 					)}
 
@@ -147,6 +224,26 @@ const Post = ({ post, postedBy }) => {
 					</Flex>
 				</Flex>
 			</Flex>
+
+			{/* Image Lightbox Modal */}
+			{post.img && (
+				<Modal isOpen={isOpen} onClose={onClose} size="4xl" isCentered>
+					<ModalOverlay bg="blackAlpha.800" backdropFilter="blur(10px)" />
+					<ModalContent bg="transparent" boxShadow="none">
+						<ModalCloseButton color="white" />
+						<ModalBody display="flex" justifyContent="center" alignItems="center" p={0} onClick={onClose}>
+							<Image 
+								src={post.img} 
+								maxH="90vh" 
+								maxW="90vw" 
+								objectFit="contain" 
+								borderRadius="md" 
+								boxShadow="0 0 40px rgba(0,0,0,0.5)"
+							/>
+						</ModalBody>
+					</ModalContent>
+				</Modal>
+			)}
 		</Link>
 	);
 };

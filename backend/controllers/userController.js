@@ -2,8 +2,12 @@ import User from "../models/userModel.js";
 import Post from "../models/postModel.js";
 import bcrypt from "bcryptjs";
 import generateTokenAndSetCookie from "../utils/helpers/generateTokenAndSetCookie.js";
+import Notification from "../models/notificationModel.js";
 import { v2 as cloudinary } from "cloudinary";
 import mongoose from "mongoose";
+import { OAuth2Client } from "google-auth-library";
+
+const client = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
 
 const getUserProfile = async (req, res) => {
 	// We will fetch user profile either with username or userId
@@ -130,6 +134,14 @@ const followUnFollowUser = async (req, res) => {
 			// Follow user
 			await User.findByIdAndUpdate(id, { $push: { followers: req.user._id } });
 			await User.findByIdAndUpdate(req.user._id, { $push: { following: id } });
+			
+			const notification = new Notification({
+				sender: req.user._id,
+				recipient: id,
+				type: "follow",
+			});
+			await notification.save();
+
 			res.status(200).json({ message: "User followed successfully" });
 		}
 	} catch (err) {
@@ -157,12 +169,20 @@ const updateUser = async (req, res) => {
 		}
 
 		if (profilePic) {
-			if (user.profilePic) {
-				await cloudinary.uploader.destroy(user.profilePic.split("/").pop().split(".")[0]);
-			}
+			try {
+				if (user.profilePic && user.profilePic.includes("cloudinary.com")) {
+					const publicId = user.profilePic.split("/").pop().split(".")[0];
+					await cloudinary.uploader.destroy(publicId);
+				}
 
-			const uploadedResponse = await cloudinary.uploader.upload(profilePic);
-			profilePic = uploadedResponse.secure_url;
+				const uploadedResponse = await cloudinary.uploader.upload(profilePic);
+				profilePic = uploadedResponse.secure_url;
+			} catch (uploadError) {
+				console.error("Cloudinary upload error:", uploadError);
+				// Fallback to storing raw base64 string if cloudinary fails
+				console.log("Falling back to raw base64 image data due to Cloudinary error.");
+				// profilePic remains the base64 string
+			}
 		}
 
 		user.name = name || user.name;
@@ -239,6 +259,70 @@ const freezeAccount = async (req, res) => {
 	}
 };
 
+const googleLogin = async (req, res) => {
+	try {
+		const { token } = req.body;
+		const ticket = await client.verifyIdToken({
+			idToken: token,
+			audience: process.env.VITE_GOOGLE_CLIENT_ID,
+		});
+		const payload = ticket.getPayload();
+		const { sub, email, name, picture } = payload;
+
+		let user = await User.findOne({ email });
+
+		if (!user) {
+			// Create a new user if one doesn't exist
+			const baseUsername = email.split('@')[0];
+			let username = baseUsername;
+			let isUnique = false;
+			let counter = 1;
+			while(!isUnique) {
+				const existing = await User.findOne({ username });
+				if (existing) {
+					username = `${baseUsername}${counter}`;
+					counter++;
+				} else {
+					isUnique = true;
+				}
+			}
+
+			user = new User({
+				name,
+				email,
+				username,
+				googleId: sub,
+				profilePic: picture,
+			});
+			await user.save();
+		} else if (!user.googleId) {
+			// Link google account to existing user
+			user.googleId = sub;
+			if (!user.profilePic) user.profilePic = picture;
+			await user.save();
+		}
+
+		if (user.isFrozen) {
+			user.isFrozen = false;
+			await user.save();
+		}
+
+		generateTokenAndSetCookie(user._id, res);
+
+		res.status(200).json({
+			_id: user._id,
+			name: user.name,
+			email: user.email,
+			username: user.username,
+			bio: user.bio,
+			profilePic: user.profilePic,
+		});
+	} catch (error) {
+		res.status(500).json({ error: error.message });
+		console.log("Error in googleLogin: ", error.message);
+	}
+};
+
 export {
 	signupUser,
 	loginUser,
@@ -248,4 +332,5 @@ export {
 	getUserProfile,
 	getSuggestedUsers,
 	freezeAccount,
+	googleLogin,
 };

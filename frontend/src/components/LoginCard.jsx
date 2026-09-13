@@ -1,3 +1,4 @@
+import { GoogleLogin } from '@react-oauth/google';
 import {
 	Flex,
 	Box,
@@ -99,20 +100,57 @@ export default function LoginCard() {
 								</InputRightElement>
 							</InputGroup>
 						</FormControl>
-						<Stack spacing={10} pt={2}>
+						<Stack spacing={4} pt={2}>
 							<Button
 								loadingText='Logging in'
 								size='lg'
-								bg={useColorModeValue("gray.600", "gray.700")}
+								bg={useColorModeValue("gray.600", "brand.500")}
 								color={"white"}
 								_hover={{
-									bg: useColorModeValue("gray.700", "gray.800"),
+									bg: useColorModeValue("gray.700", "brand.900"),
 								}}
 								onClick={handleLogin}
 								isLoading={loading}
 							>
 								Login
 							</Button>
+							
+							<Flex align="center" w="full">
+								<Box flex={1} h="1px" bg="gray.600" />
+								<Text mx={4} color="gray.500">or</Text>
+								<Box flex={1} h="1px" bg="gray.600" />
+							</Flex>
+
+							<Box display="flex" justifyContent="center">
+								<GoogleLogin
+									onSuccess={async (credentialResponse) => {
+										setLoading(true);
+										try {
+											const res = await fetch("/api/users/google", {
+												method: "POST",
+												headers: { "Content-Type": "application/json" },
+												body: JSON.stringify({ token: credentialResponse.credential }),
+											});
+											const data = await res.json();
+											if (data.error) {
+												showToast("Error", data.error, "error");
+												return;
+											}
+											localStorage.setItem("user-threads", JSON.stringify(data));
+											setUser(data);
+										} catch (error) {
+											showToast("Error", error.message, "error");
+										} finally {
+											setLoading(false);
+										}
+									}}
+									onError={() => {
+										showToast("Error", "Google Login Failed", "error");
+									}}
+									theme="filled_black"
+									shape="pill"
+								/>
+							</Box>
 						</Stack>
 						<Stack pt={6}>
 							<Text align={"center"}>

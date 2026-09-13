@@ -2,24 +2,61 @@ import { Avatar, Box, Flex, Image, Skeleton, Text } from "@chakra-ui/react";
 import { selectedConversationAtom } from "../atoms/messagesAtom";
 import { useRecoilValue } from "recoil";
 import userAtom from "../atoms/userAtom";
-import { BsCheck2All } from "react-icons/bs";
+import { BsCheck2All, BsTrash } from "react-icons/bs";
 import { useState } from "react";
+import useShowToast from "../hooks/useShowToast";
 
-const Message = ({ ownMessage, message }) => {
+const Message = ({ ownMessage, message, setMessages }) => {
 	const selectedConversation = useRecoilValue(selectedConversationAtom);
 	const user = useRecoilValue(userAtom);
 	const [imgLoaded, setImgLoaded] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+	const showToast = useShowToast();
+
+	const handleDelete = async () => {
+		if (isDeleting) return;
+		setIsDeleting(true);
+		try {
+			const res = await fetch(`/api/messages/${message._id}`, {
+				method: "DELETE",
+			});
+			const data = await res.json();
+			if (data.error) {
+				showToast("Error", data.error, "error");
+				return;
+			}
+			showToast("Success", "Message deleted", "success");
+			if (setMessages) {
+				setMessages((messages) => messages.filter((m) => m._id !== message._id));
+			}
+		} catch (error) {
+			showToast("Error", error.message, "error");
+		} finally {
+			setIsDeleting(false);
+		}
+	};
+
 	return (
 		<>
 			{ownMessage ? (
-				<Flex gap={2} alignSelf={"flex-end"}>
+				<Flex gap={2} alignSelf={"flex-end"} align="center" _hover={{ "& .delete-icon": { opacity: 1 } }}>
+					<Box
+						className="delete-icon"
+						opacity={0}
+						transition="opacity 0.2s"
+						cursor="pointer"
+						color="red.500"
+						onClick={handleDelete}
+					>
+						<BsTrash size={16} />
+					</Box>
 					{message.text && (
-						<Flex bg={"green.800"} maxW={"350px"} p={1} borderRadius={"md"}>
-							<Text color={"white"}>{message.text}</Text>
+						<Flex bg={"gray.700"} maxW={"350px"} p={3} borderRadius={"xl"} borderBottomRightRadius="sm">
+							<Text color={"white"} fontSize="md">{message.text}</Text>
 							<Box
 								alignSelf={"flex-end"}
-								ml={1}
-								color={message.seen ? "blue.400" : ""}
+								ml={2}
+								color={message.seen ? "white" : "whiteAlpha.600"}
 								fontWeight={"bold"}
 							>
 								<BsCheck2All size={16} />
@@ -60,7 +97,7 @@ const Message = ({ ownMessage, message }) => {
 					<Avatar src={selectedConversation.userProfilePic} w='7' h={7} />
 
 					{message.text && (
-						<Text maxW={"350px"} bg={"gray.400"} p={1} borderRadius={"md"} color={"black"}>
+						<Text maxW={"350px"} bg={"gray.800"} p={3} borderRadius={"xl"} borderBottomLeftRadius="sm" color={"white"} fontSize="md" boxShadow="sm">
 							{message.text}
 						</Text>
 					)}
